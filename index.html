@@ -106,7 +106,7 @@ p{margin:0;color:var(--dim);line-height:1.6;font-size:15px}
 (()=>{
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 let W=0,H=0,DPR=1;
-function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR)}
+function resize(){DPR=Math.min(1.5,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR)}
 addEventListener('resize',resize);resize();
 
 const TAU=Math.PI*2,R=3900,NAT=3800,BOTS=29,CELL=80;
@@ -116,7 +116,8 @@ const NAMES=['叉燒包','魚蛋','菠蘿油','雞蛋仔','燒賣','腸粉','蛋
 const rand=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const rad=m=>5+Math.sqrt(m)*0.85;
-const segN=m=>Math.floor(8+m*0.45);
+const GAP=0.45;
+const segN=m=>Math.ceil((40+9*Math.pow(m,0.8))/(rad(m)*GAP));
 const key=(cx,cy)=>(cx+200)*1000+(cy+200);
 const wrap=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a};
 
@@ -134,7 +135,7 @@ function spawnNat(){const a=Math.random()*TAU,d=Math.sqrt(Math.random())*(R-30);
 function makeSnake(x,y,mass,hue,name,isPlayer){
   const ang=Math.random()*TAU,s={ang,target:ang,mass,hue,name,isPlayer,alive:true,boost:false,segs:[],drop:0,ghost:isPlayer?90:30,r:rad(mass),
     ai:{t:0,skill:rand(.55,.97),aggro:Math.random(),side:Math.random()<.5?1:-1,boostT:0}};
-  const n=segN(mass),sp=s.r*0.5;
+  const n=segN(mass),sp=s.r*GAP;
   for(let i=0;i<n;i++)s.segs.push({x:x-Math.cos(ang)*i*sp,y:y-Math.sin(ang)*i*sp});
   return s;
 }
@@ -171,7 +172,7 @@ function moveSnake(s,dt){
   }else s.boost=false;
   const sp=(s.boost?5.6:2.7)*dt,h=s.segs[0];
   h.x+=Math.cos(s.ang)*sp;h.y+=Math.sin(s.ang)*sp;
-  s.r=rad(s.mass);const gap=s.r*0.5;
+  s.r=rad(s.mass);const gap=s.r*GAP;
   for(let i=1;i<s.segs.length;i++){const p=s.segs[i-1],c=s.segs[i];const dx=c.x-p.x,dy=c.y-p.y,dd=Math.hypot(dx,dy);if(dd>gap){c.x=p.x+dx/dd*gap;c.y=p.y+dy/dd*gap}}
   const n=segN(s.mass);
   while(s.segs.length<n){const l=s.segs[s.segs.length-1];s.segs.push({x:l.x,y:l.y})}
@@ -180,18 +181,21 @@ function moveSnake(s,dt){
   if(h.x*h.x+h.y*h.y>(R-s.r*.5)**2)kill(s,null);
 }
 
-function buildGrids(){
-  fGrid.clear();
-  for(const f of foods){const k=key(Math.floor(f.x/CELL),Math.floor(f.y/CELL));let a=fGrid.get(k);if(!a)fGrid.set(k,a=[]);a.push(f)}
-  sGrid.clear();
-  for(const s of snakes){if(!s.alive)continue;for(const p of s.segs){const k=key(Math.floor(p.x/CELL),Math.floor(p.y/CELL));let a=sGrid.get(k);if(!a)sGrid.set(k,a=[]);a.push(s,p.x,p.y)}}
+function buildFoodGrid(){
+  for(const a of fGrid.values())a.length=0;
+  for(const f of foods){if(f.dead)continue;const k=key(Math.floor(f.x/CELL),Math.floor(f.y/CELL));let a=fGrid.get(k);if(!a)fGrid.set(k,a=[]);a.push(f)}
 }
+function buildSegGrid(){
+  for(const a of sGrid.values())a.length=0;
+  for(const s of snakes){if(!s.alive)continue;const sg=s.segs;for(let i=0;i<sg.length;i++){const p=sg[i];const k=key(Math.floor(p.x/CELL),Math.floor(p.y/CELL));let a=sGrid.get(k);if(!a)sGrid.set(k,a=[]);a.push(s,p.x,p.y)}}
+}
+let foodDirty=false;
 
 function eat(s,dt){
   const h=s.segs[0],mag=s.r*2.5+25,rng=Math.ceil(mag/CELL),cx=Math.floor(h.x/CELL),cy=Math.floor(h.y/CELL);
   for(let i=-rng;i<=rng;i++)for(let j=-rng;j<=rng;j++){const a=fGrid.get(key(cx+i,cy+j));if(!a)continue;
     for(const f of a){if(f.dead)continue;const dx=h.x-f.x,dy=h.y-f.y,d2=dx*dx+dy*dy;
-      if(d2<(s.r+f.r*.5)**2){s.mass+=f.v;f.dead=true;if(!f.death)natCount--}
+      if(d2<(s.r+f.r*.5)**2){s.mass+=f.v;f.dead=true;foodDirty=true;if(!f.death)natCount--}
       else if(d2<mag*mag){const k=Math.min(1,.16*dt);f.x+=dx*k;f.y+=dy*k}}}
 }
 
@@ -254,14 +258,14 @@ function update(dt){
     if(keys.ArrowLeft)aim-=.06*dt;if(keys.ArrowRight)aim+=.06*dt;
     player.target=aim;player.boost=boostMouse||boostKey||boostBtn;
   }
-  buildGrids();
-  for(const s of snakes){if(!s.alive||s.isPlayer)continue;s.ai.t-=dt;if(s.ai.t<=0){think(s);s.ai.t=rand(3,6)}}
+  buildFoodGrid();
   for(const s of snakes)if(s.alive)moveSnake(s,dt);
-  buildGrids();
+  buildSegGrid();
   collide();
+  for(const s of snakes){if(!s.alive||s.isPlayer)continue;s.ai.t-=dt;if(s.ai.t<=0){think(s);s.ai.t=rand(4,7)}}
   for(const s of snakes)if(s.alive)eat(s,dt);
-  foods=foods.filter(f=>!f.dead&&!(f.death&&t-f.born>2700));
-  if(foods.length>10000)foods.splice(0,foods.length-10000);
+  if(foodDirty||Math.floor(t)%60===0){foodDirty=false;foods=foods.filter(f=>!f.dead&&!(f.death&&t-f.born>2700))}
+  if(foods.length>9000)foods.splice(0,foods.length-9000);
   for(let i=0;i<25&&natCount<NAT;i++)spawnNat();
   snakes=snakes.filter(s=>s.alive||s===player);
   respawnQ.sort((a,b)=>a-b);
@@ -270,6 +274,15 @@ function update(dt){
 }
 
 // ---------- render ----------
+const sprC={};
+function spr(k,draw){let c=sprC[k];if(c)return c;c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');draw(g);return sprC[k]=c}
+const circ=(g,r,fill)=>{g.fillStyle=fill;g.beginPath();g.arc(32,32,r,0,TAU);g.fill()};
+const foodSpr=h=>spr('f'+h,g=>{circ(g,32,`hsla(${h},90%,55%,.16)`);circ(g,12.3,`hsl(${h},95%,68%)`)});
+const glowSpr=h=>spr('g'+h,g=>circ(g,32,`hsla(${h},100%,60%,.13)`));
+const segSpr=(h,pl,b)=>spr('s'+h+pl+b,g=>{circ(g,32,`hsl(${h},60%,22%)`);circ(g,28,b?`hsl(${h},${pl?90:70}%,44%)`:`hsl(${h},${pl?95:75}%,58%)`)});
+let dotPat=null;
+function dots(){if(dotPat)return dotPat;const c=document.createElement('canvas');c.width=56;c.height=112;const g=c.getContext('2d');g.fillStyle='rgba(125,255,207,.075)';
+  for(const [x,y] of [[28,28],[0,84],[56,84]])g.fillRect(x-1.2,y-1.2,2.4,2.4);return dotPat=ctx.createPattern(c,'repeat')}
 function render(){
   let focus=player&&player.alive?player:null;
   if(!focus&&state==='menu')focus=snakes.find(s=>s.alive&&!s.isPlayer);
@@ -284,21 +297,19 @@ function render(){
   const inV=(x,y,m)=>x>vx0-m&&x<vx1+m&&y>vy0-m&&y<vy1+m;
 
   // dish texture: hex dot lattice
-  const st=56;ctx.fillStyle='rgba(125,255,207,.075)';
-  for(let gy=Math.floor(vy0/st)*st;gy<vy1;gy+=st){const off=(Math.round(gy/st)&1)?st/2:0;
-    for(let gx=Math.floor(vx0/st)*st-off;gx<vx1;gx+=st)ctx.fillRect(gx-1.2,gy-1.2,2.4,2.4)}
+  ctx.fillStyle=dots();ctx.fillRect(vx0,vy0,vx1-vx0,vy1-vy0);
   // outside the dish
   ctx.beginPath();ctx.rect(vx0-10,vy0-10,vx1-vx0+20,vy1-vy0+20);ctx.arc(0,0,R,0,TAU,true);ctx.fillStyle='rgba(255,70,50,.09)';ctx.fill('evenodd');
   ctx.beginPath();ctx.arc(0,0,R,0,TAU);ctx.lineWidth=8;ctx.strokeStyle='rgba(255,106,77,.55)';ctx.stroke();
 
   // nutrients
   ctx.globalCompositeOperation='lighter';
-  for(const f of foods){if(!inV(f.x,f.y,30))continue;
+  for(const f of foods){if(f.dead||!inV(f.x,f.y,30))continue;
     let a=1;if(f.death){const age=t-f.born;if(age>2300)a=Math.max(0,(2700-age)/400)}
-    const pul=reduce?1:1+.18*Math.sin(t*.07+f.ph);
-    ctx.globalAlpha=a;
-    ctx.fillStyle=col(f.hue,90,55,.16);ctx.beginPath();ctx.arc(f.x,f.y,f.r*2.6*pul,0,TAU);ctx.fill();
-    ctx.fillStyle=col(f.hue,95,68,1);ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,TAU);ctx.fill();}
+    const G=f.r*2.6*(reduce?1:1+.12*Math.sin(t*.07+f.ph));
+    if(a<1)ctx.globalAlpha=a;
+    ctx.drawImage(foodSpr(f.hue),f.x-G,f.y-G,G*2,G*2);
+    if(a<1)ctx.globalAlpha=1;}
   ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';
 
   // snakes (player on top)
@@ -306,13 +317,12 @@ function render(){
   for(const s of order){
     const r=s.r,segs=s.segs,hue=s.isPlayer?14:s.hue,blink=s.ghost>0&&Math.floor(t/6)%2;
     if(blink)ctx.globalAlpha=.5;
-    if(s.boost){ctx.globalCompositeOperation='lighter';ctx.fillStyle=col(hue,100,60,.13);
-      for(let i=segs.length-1;i>=0;i-=2){const p=segs[i];if(!inV(p.x,p.y,r*2))continue;ctx.beginPath();ctx.arc(p.x,p.y,r*1.7,0,TAU);ctx.fill()}
+    if(s.boost){ctx.globalCompositeOperation='lighter';const gs=glowSpr(hue),G=r*1.7;
+      for(let i=segs.length-1;i>=0;i-=2){const p=segs[i];if(!inV(p.x,p.y,G))continue;ctx.drawImage(gs,p.x-G,p.y-G,G*2,G*2)}
       ctx.globalCompositeOperation='source-over'}
-    const cA=col(hue,s.isPlayer?95:75,58,1),cB=col(hue,s.isPlayer?90:70,44,1),cE=col(hue,60,22,1);
-    for(let i=segs.length-1;i>=0;i--){const p=segs[i];if(!inV(p.x,p.y,r))continue;
-      ctx.fillStyle=cE;ctx.beginPath();ctx.arc(p.x,p.y,r+1.2,0,TAU);ctx.fill();
-      ctx.fillStyle=(Math.floor(i/5)&1)?cB:cA;ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.fill()}
+    const sA=segSpr(hue,s.isPlayer?1:0,0),sB=segSpr(hue,s.isPlayer?1:0,1),E=r*32/28;
+    for(let i=segs.length-1;i>=0;i--){const p=segs[i];if(!inV(p.x,p.y,E))continue;
+      ctx.drawImage((Math.floor(i/5)&1)?sB:sA,p.x-E,p.y-E,E*2,E*2)}
     const h=segs[0];
     if(inV(h.x,h.y,r*3)){
       const ca=Math.cos(s.ang),sa=Math.sin(s.ang);
