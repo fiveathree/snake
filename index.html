@@ -82,7 +82,7 @@ p{margin:0;color:var(--dim);line-height:1.6;font-size:15px}
       <dt class="hint-desk">衝刺</dt><dd class="hint-desk">撳住空白鍵、Shift、W、↑ 或滑鼠左鍵</dd>
       <dt class="hint-touch">方向</dt><dd class="hint-touch">手指喺畫面拖去想去嘅方向</dd>
       <dt class="hint-touch">衝刺</dt><dd class="hint-touch">撳住右下角「衝」掣</dd>
-      <dt>注意</dt><dd>衝刺會慢慢燒短你條身；你個頭撞落人哋條身就輸</dd>
+      <dt>注意</dt><dd>你個頭撞落人哋條身，或者撞出培養皿邊，就輸</dd>
     </dl>
     <button class="go" id="start">開始</button>
   </div>
@@ -117,7 +117,7 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const rad=m=>5+Math.sqrt(m)*0.85;
 const GAP=0.45;
-const segN=m=>Math.ceil((40+9*Math.pow(m,0.8))/(rad(m)*GAP));
+const segN=m=>Math.ceil((40+14*Math.pow(m,0.85))/(rad(m)*GAP));
 const key=(cx,cy)=>(cx+200)*1000+(cy+200);
 const wrap=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a};
 
@@ -131,7 +131,7 @@ const cam={x:0,y:0,z:1};
 
 function addFood(x,y,v,hue,death){foods.push({x,y,v,r:2+Math.sqrt(v)*2.4,hue,death,born:t,ph:Math.random()*TAU,dead:false});if(!death)natCount++}
 function spawnNat(near){let a=Math.random()*TAU,d=Math.sqrt(Math.random())*(R-30);
-  if(near&&player&&player.alive){const h=player.segs[0],x=h.x+Math.cos(a)*rand(250,1500),y=h.y+Math.sin(a)*rand(250,1500),dd=Math.hypot(x,y);if(dd<R-40){a=Math.atan2(y,x);d=dd}}
+  if(near&&player&&player.alive){let ok=false;const h=player.segs[0],vr=Math.hypot(W,H)/2/cam.z+80,rr=rand(vr,vr+1200),x=h.x+Math.cos(a)*rr,y=h.y+Math.sin(a)*rr,dd=Math.hypot(x,y);if(dd<R-40){a=Math.atan2(y,x);d=dd;ok=true}}
   const v=Math.random()<.07?rand(3,5):rand(.5,1.4);addFood(Math.cos(a)*d,Math.sin(a)*d,v,pick(HUES),false)}
 
 function makeSnake(x,y,mass,hue,name,isPlayer){
@@ -169,10 +169,6 @@ bb.addEventListener('contextmenu',e=>e.preventDefault());
 function moveSnake(s,dt){
   const maxT=(0.078-Math.min(0.038,s.mass/12000))*dt;
   const d=wrap(s.target-s.ang);s.ang+=Math.max(-maxT,Math.min(maxT,d));
-  if(s.boost&&s.mass>6){
-    s.mass-=0.065*dt;s.drop+=dt;
-    if(s.drop>5){s.drop=0;const tl=s.segs[s.segs.length-1];addFood(tl.x+rand(-3,3),tl.y+rand(-3,3),.26,s.hue,true)}
-  }else s.boost=false;
   const sp=(s.boost?5.6:2.7)*dt,h=s.segs[0];
   h.x+=Math.cos(s.ang)*sp;h.y+=Math.sin(s.ang)*sp;
   s.r=rad(s.mass);const gap=s.r*GAP;
@@ -366,7 +362,7 @@ function drawKing(k,z){
     ctx.fillStyle='#ffd34d';ctx.fillText(label,sx,cy-18);
   }else{
     const dx=sx-W/2,dy=sy-H/2,a=Math.atan2(dy,dx);
-    const tx=dx===0?1e9:((dx>0?W/2-m:-(W/2-m))/dx),ty=dy===0?1e9:((dy>0?H/2-m-20:-(H/2-m-20))/dy);
+    const tx=dx===0?1e9:((dx>0?W/2-m:-(W/2-m))/dx),ty=dy===0?1e9:((dy>0?H/2-m-50:-(H/2-m-20))/dy);
     const f=Math.min(Math.abs(tx),Math.abs(ty)),px=W/2+dx*f,py=H/2+dy*f;
     const pulse=reduce?1:1+.08*Math.sin(t*.12);
     ctx.save();ctx.translate(px,py);ctx.rotate(a);
