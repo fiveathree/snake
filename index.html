@@ -70,7 +70,7 @@ p{margin:0;color:var(--dim);line-height:1.6;font-size:15px}
 <ol class="board" id="board"></ol>
 <button class="boost" id="boost" aria-label="衝刺">衝</button>
 <div class="toast" id="toast"></div>
-<div class="hint" id="hint" hidden><span class="hint-desk">撳住 <kbd>滑鼠左鍵</kbd> 或 <kbd>空白鍵</kbd> 加速</span><span class="hint-touch">撳住右下角 <kbd>衝</kbd> 加速 · 手指拖方向</span></div>
+<div class="hint" id="hint" hidden><span class="hint-desk">撳住 <kbd>空白鍵</kbd> / <kbd>Shift</kbd> / <kbd>W</kbd> / <kbd>滑鼠左鍵</kbd> 加速</span><span class="hint-touch">撳住右下角 <kbd>衝</kbd> 加速 · 手指拖方向</span></div>
 
 <div class="ov" id="menu">
   <div class="card">
@@ -79,7 +79,7 @@ p{margin:0;color:var(--dim);line-height:1.6;font-size:15px}
     <p>你一出世得一條幼線。成個培養皿都係養份，食得越多越長。最正係截佢哋頭：其他蛇一撞落你條身，成條即刻散開變一粒粒養份，任你食。</p>
     <dl class="ctrls">
       <dt class="hint-desk">方向</dt><dd class="hint-desk">滑鼠指去邊就行去邊，或者用 ← →</dd>
-      <dt class="hint-desk">衝刺</dt><dd class="hint-desk">撳住滑鼠左鍵 或 空白鍵</dd>
+      <dt class="hint-desk">衝刺</dt><dd class="hint-desk">撳住空白鍵、Shift、W、↑ 或滑鼠左鍵</dd>
       <dt class="hint-touch">方向</dt><dd class="hint-touch">手指喺畫面拖去想去嘅方向</dd>
       <dt class="hint-touch">衝刺</dt><dd class="hint-touch">撳住右下角「衝」掣</dd>
       <dt>注意</dt><dd>衝刺會慢慢燒短你條身；你個頭撞落人哋條身就輸</dd>
@@ -109,7 +109,7 @@ let W=0,H=0,DPR=1;
 function resize(){DPR=Math.min(1.5,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR)}
 addEventListener('resize',resize);resize();
 
-const TAU=Math.PI*2,R=3900,NAT=3800,BOTS=29,CELL=80;
+const TAU=Math.PI*2,R=3900,NAT=4500,BOTS=29,CELL=80;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const HUES=[160,185,48,320,95,270,205,345,130,28,60,295];
 const NAMES=['叉燒包','魚蛋','菠蘿油','雞蛋仔','燒賣','腸粉','蛋撻','奶茶','鴛鴦','豬扒包','牛雜','碗仔翅','煎釀三寶','格仔餅','西多士','車仔麵','絲襪','涼茶','龜苓膏','臭豆腐','鹹檸七','蝦餃','咖喱魚蛋','炸兩','老婆餅','缽仔糕'];
@@ -130,7 +130,9 @@ const fGrid=new Map(),sGrid=new Map();
 const cam={x:0,y:0,z:1};
 
 function addFood(x,y,v,hue,death){foods.push({x,y,v,r:2+Math.sqrt(v)*2.4,hue,death,born:t,ph:Math.random()*TAU,dead:false});if(!death)natCount++}
-function spawnNat(){const a=Math.random()*TAU,d=Math.sqrt(Math.random())*(R-30);const v=Math.random()<.07?rand(3,5):rand(.5,1.4);addFood(Math.cos(a)*d,Math.sin(a)*d,v,pick(HUES),false)}
+function spawnNat(near){let a=Math.random()*TAU,d=Math.sqrt(Math.random())*(R-30);
+  if(near&&player&&player.alive){const h=player.segs[0],x=h.x+Math.cos(a)*rand(250,1500),y=h.y+Math.sin(a)*rand(250,1500),dd=Math.hypot(x,y);if(dd<R-40){a=Math.atan2(y,x);d=dd}}
+  const v=Math.random()<.07?rand(3,5):rand(.5,1.4);addFood(Math.cos(a)*d,Math.sin(a)*d,v,pick(HUES),false)}
 
 function makeSnake(x,y,mass,hue,name,isPlayer){
   const ang=Math.random()*TAU,s={ang,target:ang,mass,hue,name,isPlayer,alive:true,boost:false,segs:[],drop:0,ghost:isPlayer?90:30,r:rad(mass),
@@ -155,8 +157,9 @@ cv.addEventListener('pointerdown',e=>{setAim(e);if(e.pointerType==='mouse'&&e.bu
 cv.addEventListener('pointermove',setAim);
 addEventListener('pointerup',e=>{if(e.pointerType==='mouse')boostMouse=false});
 addEventListener('blur',()=>{boostMouse=boostKey=boostBtn=false});
-addEventListener('keydown',e=>{keys[e.key]=true;if(e.code==='Space'||e.key==='Shift'){boostKey=true;if(state==='play')e.preventDefault()}});
-addEventListener('keyup',e=>{keys[e.key]=false;if(e.code==='Space'||e.key==='Shift')boostKey=false});
+const BOOSTK=new Set(['Space','ShiftLeft','ShiftRight','KeyW','ArrowUp']);
+addEventListener('keydown',e=>{keys[e.key]=true;if(BOOSTK.has(e.code)&&state==='play'){boostKey=true;e.preventDefault()}},true);
+addEventListener('keyup',e=>{keys[e.key]=false;if(BOOSTK.has(e.code)){boostKey=false;if(state==='play')e.preventDefault()}},true);
 const bb=document.getElementById('boost');
 const bOn=e=>{e.preventDefault();boostBtn=true;bb.classList.add('on')},bOff=()=>{boostBtn=false;bb.classList.remove('on')};
 bb.addEventListener('pointerdown',bOn);bb.addEventListener('pointerup',bOff);bb.addEventListener('pointercancel',bOff);bb.addEventListener('pointerleave',bOff);
@@ -166,7 +169,7 @@ bb.addEventListener('contextmenu',e=>e.preventDefault());
 function moveSnake(s,dt){
   const maxT=(0.078-Math.min(0.038,s.mass/12000))*dt;
   const d=wrap(s.target-s.ang);s.ang+=Math.max(-maxT,Math.min(maxT,d));
-  if(s.boost&&s.mass>12){
+  if(s.boost&&s.mass>6){
     s.mass-=0.065*dt;s.drop+=dt;
     if(s.drop>5){s.drop=0;const tl=s.segs[s.segs.length-1];addFood(tl.x+rand(-3,3),tl.y+rand(-3,3),.26,s.hue,true)}
   }else s.boost=false;
@@ -266,7 +269,12 @@ function update(dt){
   for(const s of snakes)if(s.alive)eat(s,dt);
   if(foodDirty||Math.floor(t)%60===0){foodDirty=false;foods=foods.filter(f=>!f.dead&&!(f.death&&t-f.born>2700))}
   if(foods.length>9000)foods.splice(0,foods.length-9000);
-  for(let i=0;i<25&&natCount<NAT;i++)spawnNat();
+  for(let i=0;i<25&&natCount<NAT;i++)spawnNat(Math.random()<.5);
+  if(player&&player.alive&&Math.floor(t)%20===0&&natCount<NAT*1.4){
+    const h=player.segs[0],cx=Math.floor(h.x/CELL),cy=Math.floor(h.y/CELL);let c=0;
+    for(let i=-10;i<=10;i++)for(let j=-10;j<=10;j++){const a=fGrid.get(key(cx+i,cy+j));if(a)c+=a.length}
+    if(c<220)for(let i=0;i<25;i++)spawnNat(true);
+  }
   snakes=snakes.filter(s=>s.alive||s===player);
   respawnQ.sort((a,b)=>a-b);
   while(respawnQ.length&&respawnQ[0]<=t){respawnQ.shift();snakes.push(makeBot())}
@@ -306,7 +314,7 @@ function render(){
   ctx.globalCompositeOperation='lighter';
   for(const f of foods){if(f.dead||!inV(f.x,f.y,30))continue;
     let a=1;if(f.death){const age=t-f.born;if(age>2300)a=Math.max(0,(2700-age)/400)}
-    const G=f.r*2.6*(reduce?1:1+.12*Math.sin(t*.07+f.ph));
+    const G=f.r*2.6*(reduce?1:1+.12*Math.sin(t*.07+f.ph))*Math.min(1,(t-f.born)/25+.05);
     if(a<1)ctx.globalAlpha=a;
     ctx.drawImage(foodSpr(f.hue),f.x-G,f.y-G,G*2,G*2);
     if(a<1)ctx.globalAlpha=1;}
@@ -411,8 +419,8 @@ function gameOver(byName){
   $('rKill').textContent=kills;$('rBest').textContent=b.toLocaleString('en-US');
   setTimeout(()=>{$('over').hidden=false;$('again').focus()},700);
 }
-$('start').addEventListener('click',start);
-$('again').addEventListener('click',start);
+$('start').addEventListener('click',e=>{e.currentTarget.blur();start()});
+$('again').addEventListener('click',e=>{e.currentTarget.blur();start()});
 
 initWorld();
 let last=performance.now(),frame=0;
