@@ -109,7 +109,7 @@ let W=0,H=0,DPR=1;
 function resize(){DPR=Math.min(1.5,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR)}
 addEventListener('resize',resize);resize();
 
-const TAU=Math.PI*2,R=11700,NAT=30000,BOTS=29,CELL=80;
+const TAU=Math.PI*2,R=11700,NAT=30000,BOTS=60,CELL=80;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const HUES=[160,185,48,320,95,270,205,345,130,28,60,295];
 const NAMES=['叉燒包','魚蛋','菠蘿油','雞蛋仔','燒賣','腸粉','蛋撻','奶茶','鴛鴦','豬扒包','牛雜','碗仔翅','煎釀三寶','格仔餅','西多士','車仔麵','絲襪','涼茶','龜苓膏','臭豆腐','鹹檸七','蝦餃','咖喱魚蛋','炸兩','老婆餅','缽仔糕'];
