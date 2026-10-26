@@ -109,7 +109,7 @@ let W=0,H=0,DPR=1;
 function resize(){DPR=Math.min(1.5,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR)}
 addEventListener('resize',resize);resize();
 
-const TAU=Math.PI*2,R=3900,NAT=4500,BOTS=29,CELL=80;
+const TAU=Math.PI*2,R=11700,NAT=30000,BOTS=29,CELL=80;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const HUES=[160,185,48,320,95,270,205,345,130,28,60,295];
 const NAMES=['叉燒包','魚蛋','菠蘿油','雞蛋仔','燒賣','腸粉','蛋撻','奶茶','鴛鴦','豬扒包','牛雜','碗仔翅','煎釀三寶','格仔餅','西多士','車仔麵','絲襪','涼茶','龜苓膏','臭豆腐','鹹檸七','蝦餃','咖喱魚蛋','炸兩','老婆餅','缽仔糕'];
@@ -141,14 +141,16 @@ function makeSnake(x,y,mass,hue,name,isPlayer){
   for(let i=0;i<n;i++)s.segs.push({x:x-Math.cos(ang)*i*sp,y:y-Math.sin(ang)*i*sp});
   return s;
 }
-function makeBot(){
-  let x=0,y=0;
-  for(let k=0;k<15;k++){const a=Math.random()*TAU,d=Math.sqrt(Math.random())*(R-400);x=Math.cos(a)*d;y=Math.sin(a)*d;
-    if(!player||!player.alive)break;const h=player.segs[0];if(Math.hypot(x-h.x,y-h.y)>900)break}
+// bots only ever spawn with their whole body outside the current view (plus margin), so they never pop in on screen
+function offView(s){const hw=W/2/cam.z+250,hh=H/2/cam.z+250;return s.segs.every(p=>Math.abs(p.x-cam.x)>hw||Math.abs(p.y-cam.y)>hh)}
+function makeBot(init){
   const r=Math.random(),m=r<.2?rand(200,800):r<.5?rand(40,180):rand(10,40);
-  return makeSnake(x,y,m,pick(HUES),pick(NAMES),false);
+  for(let k=0;k<40;k++){const a=Math.random()*TAU,d=Math.sqrt(Math.random())*(R-400);
+    const s=makeSnake(Math.cos(a)*d,Math.sin(a)*d,m,pick(HUES),pick(NAMES),false);
+    if(init||offView(s))return s}
+  return null;
 }
-function initWorld(){foods=[];natCount=0;for(let i=0;i<NAT;i++)spawnNat();snakes=[];for(let i=0;i<BOTS;i++)snakes.push(makeBot())}
+function initWorld(){foods=[];natCount=0;for(let i=0;i<NAT;i++)spawnNat();snakes=[];for(let i=0;i<BOTS;i++)snakes.push(makeBot(true))}
 
 // ---------- input ----------
 let aim=0,boostMouse=false,boostKey=false,boostBtn=false;const keys={};
@@ -264,7 +266,7 @@ function update(dt){
   for(const s of snakes){if(!s.alive||s.isPlayer)continue;s.ai.t-=dt;if(s.ai.t<=0){think(s);s.ai.t=rand(4,7)}}
   for(const s of snakes)if(s.alive)eat(s,dt);
   if(foodDirty||Math.floor(t)%60===0){foodDirty=false;foods=foods.filter(f=>!f.dead&&!(f.death&&t-f.born>2700))}
-  if(foods.length>9000)foods.splice(0,foods.length-9000);
+  if(foods.length>NAT*1.4+9000)foods.splice(0,foods.length-(NAT*1.4+9000));
   for(let i=0;i<25&&natCount<NAT;i++)spawnNat(Math.random()<.5);
   if(player&&player.alive&&Math.floor(t)%20===0&&natCount<NAT*1.4){
     const h=player.segs[0],cx=Math.floor(h.x/CELL),cy=Math.floor(h.y/CELL);let c=0;
@@ -273,7 +275,7 @@ function update(dt){
   }
   snakes=snakes.filter(s=>s.alive||s===player);
   respawnQ.sort((a,b)=>a-b);
-  while(respawnQ.length&&respawnQ[0]<=t){respawnQ.shift();snakes.push(makeBot())}
+  while(respawnQ.length&&respawnQ[0]<=t){respawnQ.shift();const b=makeBot();if(b)snakes.push(b);else{respawnQ.push(t+30);break}}
   if(player&&player.alive)peak=Math.max(peak,player.mass);
 }
 
